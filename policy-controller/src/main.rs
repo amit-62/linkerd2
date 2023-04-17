@@ -14,10 +14,11 @@ use linkerd_policy_controller::{
 };
 use linkerd_policy_controller_k8s_index::ports::parse_portset;
 use linkerd_policy_controller_k8s_status::{self as status};
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, fs::File};
 use tokio::{sync::mpsc, time::Duration};
 use tonic::transport::Server;
 use tracing::{info, info_span, instrument, Instrument};
+use pprof;
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
 #[global_allocator]
@@ -87,6 +88,9 @@ struct Args {
 
     #[clap(long)]
     default_opaque_ports: String,
+
+    #[clap(long, default_value = "false")]
+    enable_profile: bool,
 }
 
 #[tokio::main]
@@ -107,6 +111,7 @@ async fn main() -> Result<()> {
         control_plane_namespace,
         probe_networks,
         default_opaque_ports,
+        enable_profile,
     } = Args::parse();
 
     let server = if admission_controller_disabled {
@@ -231,14 +236,44 @@ async fn main() -> Result<()> {
     tokio::spawn(status::Index::run(status_index.clone()).instrument(info_span!("status::Index")));
 
     // Run the gRPC server, serving results by looking up against the index handle.
-    tokio::spawn(grpc(
-        grpc_addr,
-        cluster_domain,
-        cluster_networks,
-        inbound_index,
-        outbound_index,
-        runtime.shutdown_handle(),
-    ));
+    // tokio::spawn(grpc(
+    //     grpc_addr,
+    //     cluster_domain,
+    //     cluster_networks,
+    //     inbound_index,
+    //     outbound_index,
+    //     runtime.shutdown_handle(),
+    // ));
+
+    if enable_profile {
+        let guard = pprof::ProfilerGuard::new(100).unwrap();
+
+        tokio::spawn(grpc(
+            grpc_addr,
+            cluster_domain,
+            cluster_networks,
+            inbound_index,
+            outbound_index,
+            runtime.shutdown_handle(),
+        ));
+
+        if let Ok(report) = guard.report().build() {
+            let file = File::create("flamegraph.svg").unwrap();
+            report.flamegraph(file).unwrap();
+    
+            println!("report: {:?}", &report);
+        };
+        
+    } else {
+        tokio::spawn(grpc(
+            grpc_addr,
+            cluster_domain,
+            cluster_networks,
+            inbound_index,
+            outbound_index,
+            runtime.shutdown_handle(),
+        ));
+    }
 
     let client = runtime.client();
     let status_controller = status::Controller::new(claims, client, hostname, updates_rx);
