@@ -14,11 +14,12 @@ use linkerd_policy_controller::{
 };
 use linkerd_policy_controller_k8s_index::ports::parse_portset;
 use linkerd_policy_controller_k8s_status::{self as status};
-use std::{net::SocketAddr, sync::Arc, fs::File};
+use warp::Filter;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::{sync::mpsc, time::Duration};
 use tonic::transport::Server;
 use tracing::{info, info_span, instrument, Instrument};
-use pprof;
+use pprof::{self, ProfilerGuard};
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
 #[global_allocator]
@@ -246,7 +247,7 @@ async fn main() -> Result<()> {
     // ));
 
     if enable_profile {
-        let guard = pprof::ProfilerGuard::new(100).unwrap();
+        let guard = Arc::new(ProfilerGuard::new(100).unwrap());
 
         tokio::spawn(grpc(
             grpc_addr,
@@ -257,13 +258,18 @@ async fn main() -> Result<()> {
             runtime.shutdown_handle(),
         ));
 
-        if let Ok(report) = guard.report().build() {
-            let file = File::create("flamegraph.svg").unwrap();
-            report.flamegraph(file).unwrap();
-    
-            println!("report: {:?}", &report);
-        };
-        
+        // Create a new endpoint for downloading the pprof report
+    let pprof_report_endpoint = warp::path("pprof_report").map(move || {
+        let report = guard.report().build().unwrap();
+        let mut file = Vec::new();
+        report.flamegraph(&mut file).unwrap();
+        let response = warp::http::Response::builder()
+            .header("content-type", "image/svg+xml")
+            .body(file)
+            .unwrap();
+        response
+    });
+    warp::serve(pprof_report_endpoint).run(([0, 0, 0, 0], 8081)).await;
     } else {
         tokio::spawn(grpc(
             grpc_addr,
