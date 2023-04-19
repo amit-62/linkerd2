@@ -91,7 +91,7 @@ struct Args {
     default_opaque_ports: String,
 
     #[clap(long, default_value = "false")]
-    enable_profile: bool,
+    enable_pprof: bool,
 }
 
 #[tokio::main]
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
         control_plane_namespace,
         probe_networks,
         default_opaque_ports,
-        enable_profile,
+        enable_pprof,
     } = Args::parse();
 
     let server = if admission_controller_disabled {
@@ -246,7 +246,7 @@ async fn main() -> Result<()> {
     //     runtime.shutdown_handle(),
     // ));
 
-    if enable_profile {
+    if enable_pprof {
         let guard = Arc::new(ProfilerGuard::new(100).unwrap());
 
         tokio::spawn(grpc(
