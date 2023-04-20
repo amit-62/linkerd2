@@ -330,6 +330,8 @@ spec:
         - mountPath: /var/run/linkerd/tls
           name: policy-tls
           readOnly: true
+        - mountPath: /tmp
+          name: tmp   
       initContainers:
       {{ if .Values.cniEnabled -}}
       - {{- include "partials.network-validator" $tree | indent 8 | trimPrefix (repeat 7 " ") }}
@@ -355,6 +357,8 @@ spec:
       - name: policy-tls
         secret:
           secretName: linkerd-policy-validator-k8s-tls
+      - name: tmp
+          emptyDir: {}    
       {{ if not .Values.cniEnabled -}}
       - {{- include "partials.proxyInit.volumes.xtables" . | indent 8 | trimPrefix (repeat 7 " ") }}
       {{ end -}}
