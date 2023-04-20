@@ -90,12 +90,13 @@ struct Args {
     #[clap(long)]
     default_opaque_ports: String,
 
-    #[clap(long, default_value = "false")]
+    #[clap(long)]
     enable_pprof: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    println!("linkerd proxy controller");
     let Args {
         admin,
         client,
@@ -259,15 +260,15 @@ async fn main() -> Result<()> {
         ));
 
         // Create a new endpoint for downloading the pprof report
-    let pprof_report_endpoint = warp::path("pprof_report").map(move || {
-        let report = guard.report().build().unwrap();
-        let mut file = Vec::new();
-        report.flamegraph(&mut file).unwrap();
-        let response = warp::http::Response::builder()
-            .header("content-type", "image/svg+xml")
-            .body(file)
-            .unwrap();
-        response
+        let pprof_report_endpoint = warp::path("pprof_report").map(move || {
+            let report = guard.report().build().unwrap();
+            let mut file = Vec::new();
+            report.flamegraph(&mut file).unwrap();
+            let response = warp::http::Response::builder()
+                .header("content-type", "image/svg+xml")
+                .body(file)
+                .unwrap();
+            response
     });
     warp::serve(pprof_report_endpoint).run(([0, 0, 0, 0], 8081)).await;
     } else {
