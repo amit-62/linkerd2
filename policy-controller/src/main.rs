@@ -294,9 +294,10 @@ async fn main() -> Result<()> {
                         let profile = report.pprof().unwrap();
                         profile.write_to_vec(&mut file).unwrap();
                         warp::http::Response::builder()
-                            .header("content-type", "application/pdf")
-                            .body(file)
-                            .unwrap()
+                        .header("Content-Type", "application/octet-stream")
+                        .header("Content-Disposition", "attachment; filename=profile.pb")
+                        .body(file)
+                        .unwrap()
                     }
                     else {
                         Response::builder()
