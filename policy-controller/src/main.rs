@@ -19,7 +19,7 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::{sync::mpsc, time::Duration};
 use tonic::transport::Server;
 use tracing::{info, info_span, instrument, Instrument};
-use pprof::{self, ProfilerGuard};
+use pprof::{self, ProfilerGuardBuilder};
 use pprof::protos::Message;
 use warp::{
     http::{Response},
@@ -253,7 +253,7 @@ async fn main() -> Result<()> {
     // ));
 
     if enable_pprof {
-        let guard = Arc::new(ProfilerGuard::new(100).unwrap());
+        let guard = Arc::new(ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso", "backtrace"]).build().unwrap());
 
         tokio::spawn(grpc(
             grpc_addr,
@@ -283,7 +283,7 @@ async fn main() -> Result<()> {
                     if obj.key == "Flamegraph" {
                         let mut file = Vec::new();
                         report.flamegraph(&mut file).unwrap();
-                        warp::http::Response::builder()
+                        Response::builder()
                             .header("content-type", "image/svg+xml")
                             .body(file)
                             .unwrap()   
@@ -293,7 +293,7 @@ async fn main() -> Result<()> {
                         let mut file = Vec::new();
                         let profile = report.pprof().unwrap();
                         profile.write_to_vec(&mut file).unwrap();
-                        warp::http::Response::builder()
+                        Response::builder()
                         .header("Content-Type", "application/octet-stream")
                         .header("Content-Disposition", "attachment; filename=profile.pb")
                         .body(file)
@@ -307,8 +307,8 @@ async fn main() -> Result<()> {
                     }
                 }
                 None => Response::builder()
-                    .body(Vec::from("Failed to decode query param."))
-                    .unwrap(),
+                        .body(Vec::from("Failed to decode query param."))
+                        .unwrap(),
                 
             }
         });
