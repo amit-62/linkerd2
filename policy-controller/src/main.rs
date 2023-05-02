@@ -95,7 +95,7 @@ struct Args {
     #[clap(long)]
     default_opaque_ports: String,
 
-    #[clap(long)]
+    #[clap(long, action = clap::ArgAction::Set)]
     enable_pprof: bool,
 }
 
