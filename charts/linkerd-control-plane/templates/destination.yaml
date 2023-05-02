@@ -310,7 +310,7 @@ spec:
         {{ if .Values.enablePprof -}}  
         - containerPort: 8081
           name: pprof
-        {{ end -}}   
+        {{- end }}   
         readinessProbe:
           failureThreshold: 7
           httpGet:
@@ -337,7 +337,7 @@ spec:
         {{ if .Values.enablePprof -}}  
         - mountPath: /tmp
           name: tmp 
-        {{ end -}}    
+        {{- end }}    
       initContainers:
       {{ if .Values.cniEnabled -}}
       - {{- include "partials.network-validator" $tree | indent 8 | trimPrefix (repeat 7 " ") }}
@@ -366,7 +366,7 @@ spec:
       {{ if .Values.enablePprof -}}    
       - name: tmp
         emptyDir: {} 
-      {{ end -}}     
+      {{- end }}     
       {{ if not .Values.cniEnabled -}}
       - {{- include "partials.proxyInit.volumes.xtables" . | indent 8 | trimPrefix (repeat 7 " ") }}
       {{ end -}}
