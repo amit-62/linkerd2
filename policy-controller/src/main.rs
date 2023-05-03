@@ -35,6 +35,11 @@ const LEASE_DURATION: Duration = Duration::from_secs(30);
 const LEASE_NAME: &str = "policy-controller-write";
 const RENEW_GRACE_PERIOD: Duration = Duration::from_secs(1);
 
+#[derive(Deserialize, Serialize)]
+struct QueryParams {
+    key: String,
+}
+
 #[derive(Debug, Parser)]
 #[clap(name = "policy", about = "A policy resource prototype")]
 struct Args {
@@ -251,7 +256,7 @@ async fn main() -> Result<()> {
     //     outbound_index,
     //     runtime.shutdown_handle(),
     // ));
-
+    #[cfg(feature = "pprof")]
     if enable_pprof {
         let guard = Arc::new(ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso", "backtrace"]).build().unwrap());
 
@@ -263,11 +268,7 @@ async fn main() -> Result<()> {
             outbound_index,
             runtime.shutdown_handle(),
         ));
-
-        #[derive(Deserialize, Serialize)]
-        struct QueryParams {
-            key: String,
-        }
+      
         let opt_query = warp::query::<QueryParams>()
         .map(Some)
         .or_else(|_| async { Ok::<(Option<QueryParams>,), std::convert::Infallible>((None,)) });
