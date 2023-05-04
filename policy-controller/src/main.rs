@@ -1,6 +1,6 @@
 #![deny(warnings, rust_2018_idioms)]
 #![forbid(unsafe_code)]
-// #![allow(unused_variables)]
+#![allow(unused_variables)]
 
 use anyhow::{bail, Result};
 use clap::Parser;
@@ -126,7 +126,7 @@ async fn main() -> Result<()> {
         control_plane_namespace,
         probe_networks,
         default_opaque_ports,
-        _enable_pprof,
+        enable_pprof,
     } = Args::parse();
 
     let server = if admission_controller_disabled {
@@ -251,14 +251,15 @@ async fn main() -> Result<()> {
     tokio::spawn(status::Index::run(status_index.clone()).instrument(info_span!("status::Index")));
 
     // Run the gRPC server, serving results by looking up against the index handle.
-    // tokio::spawn(grpc(
-    //     grpc_addr,
-    //     cluster_domain,
-    //     cluster_networks,
-    //     inbound_index,
-    //     outbound_index,
-    //     runtime.shutdown_handle(),
-    // ));
+    tokio::spawn(grpc(
+        grpc_addr,
+        cluster_domain,
+        cluster_networks,
+        inbound_index,
+        outbound_index,
+        runtime.shutdown_handle(),
+    ));
+    
     #[cfg(feature = "pprof")]
     if enable_pprof {
         let guard = Arc::new(ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso", "backtrace"]).build().unwrap());
@@ -319,16 +320,7 @@ async fn main() -> Result<()> {
         tokio::spawn(async move {
             warp::serve(pprof_report_endpoint).run(([0, 0, 0, 0], 8081)).await;
         });
-    } 
-
-    tokio::spawn(grpc(
-        grpc_addr,
-        cluster_domain,
-        cluster_networks,
-        inbound_index,
-        outbound_index,
-        runtime.shutdown_handle(),
-    ));
+    }
 
     let client = runtime.client();
     let status_controller = status::Controller::new(claims, client, hostname, updates_rx);
