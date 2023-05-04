@@ -250,16 +250,6 @@ async fn main() -> Result<()> {
     // Spawn the status Controller reconciliation.
     tokio::spawn(status::Index::run(status_index.clone()).instrument(info_span!("status::Index")));
 
-    // Run the gRPC server, serving results by looking up against the index handle.
-    // tokio::spawn(grpc(
-    //     grpc_addr,
-    //     cluster_domain,
-    //     cluster_networks,
-    //     inbound_index,
-    //     outbound_index,
-    //     runtime.shutdown_handle(),
-    // ));
-
     #[cfg(feature = "pprof")]
     if enable_pprof {
         let guard = Arc::new(ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso", "backtrace"]).build().unwrap());
