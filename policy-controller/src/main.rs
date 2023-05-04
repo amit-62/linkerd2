@@ -1,5 +1,6 @@
 #![deny(warnings, rust_2018_idioms)]
 #![forbid(unsafe_code)]
+// #![allow(unused_variables)]
 
 use anyhow::{bail, Result};
 use clap::Parser;
@@ -19,8 +20,9 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::{sync::mpsc, time::Duration};
 use tonic::transport::Server;
 use tracing::{info, info_span, instrument, Instrument};
+#[cfg(feature = "pprof")]
 use pprof::{self, ProfilerGuardBuilder};
-use pprof::protos::Message;
+#[cfg(feature = "pprof")]
 use warp::{
     http::{Response},
     Filter,
@@ -107,6 +109,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("linkerd proxy controller");
+    // #[cfg(feature = "pprof")]
     let Args {
         admin,
         client,
@@ -123,7 +126,7 @@ async fn main() -> Result<()> {
         control_plane_namespace,
         probe_networks,
         default_opaque_ports,
-        enable_pprof,
+        _enable_pprof,
     } = Args::parse();
 
     let server = if admission_controller_disabled {
@@ -315,17 +318,17 @@ async fn main() -> Result<()> {
         });
         tokio::spawn(async move {
             warp::serve(pprof_report_endpoint).run(([0, 0, 0, 0], 8081)).await;
-    });
-    } else {
-        tokio::spawn(grpc(
-            grpc_addr,
-            cluster_domain,
-            cluster_networks,
-            inbound_index,
-            outbound_index,
-            runtime.shutdown_handle(),
-        ));
-    }
+        });
+    } 
+
+    tokio::spawn(grpc(
+        grpc_addr,
+        cluster_domain,
+        cluster_networks,
+        inbound_index,
+        outbound_index,
+        runtime.shutdown_handle(),
+    ));
 
     let client = runtime.client();
     let status_controller = status::Controller::new(claims, client, hostname, updates_rx);
