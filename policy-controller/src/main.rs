@@ -14,12 +14,17 @@ use linkerd_policy_controller::{
 };
 use linkerd_policy_controller_k8s_index::ports::parse_portset;
 use linkerd_policy_controller_k8s_status::{self as status};
-use warp::Filter;
+use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{sync::mpsc, time::Duration};
 use tonic::transport::Server;
 use tracing::{info, info_span, instrument, Instrument};
 use pprof::{self, ProfilerGuard};
+use pprof::protos::Message;
+use warp::{
+    http::{Response},
+    Filter,
+};
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
 #[global_allocator]
@@ -259,18 +264,56 @@ async fn main() -> Result<()> {
             runtime.shutdown_handle(),
         ));
 
-        // Create a new endpoint for downloading the pprof report
-        let pprof_report_endpoint = warp::path("pprof_report").map(move || {
+        #[derive(Deserialize, Serialize)]
+        struct QueryParams {
+            key: String,
+        }
+        let opt_query = warp::query::<QueryParams>()
+        .map(Some)
+        .or_else(|_| async { Ok::<(Option<QueryParams>,), std::convert::Infallible>((None,)) });
+
+        let pprof_report_endpoint = warp::path("pprof_report")
+        .and(opt_query)
+        .map(move |params: Option<QueryParams>| {
             let report = guard.report().build().unwrap();
-            let mut file = Vec::new();
-            report.flamegraph(&mut file).unwrap();
-            let response = warp::http::Response::builder()
-                .header("content-type", "image/svg+xml")
-                .body(file)
-                .unwrap();
-            response
+
+            match params {
+                Some(obj) => {
+                    // pprof_report?key=Flamegraph
+                    if obj.key == "Flamegraph" {
+                        let mut file = Vec::new();
+                        report.flamegraph(&mut file).unwrap();
+                        warp::http::Response::builder()
+                            .header("content-type", "image/svg+xml")
+                            .body(file)
+                            .unwrap()   
+                    }
+                    // pprof_report?key=proto
+                    else if obj.key == "proto"  {
+                        let mut file = Vec::new();
+                        let profile = report.pprof().unwrap();
+                        profile.write_to_vec(&mut file).unwrap();
+                        warp::http::Response::builder()
+                            .header("content-type", "application/pdf")
+                            .body(file)
+                            .unwrap()
+                    }
+                    else {
+                        Response::builder()
+                        .body(Vec::from("unknown value for key"))
+                        .unwrap()
+
+                    }
+                }
+                None => Response::builder()
+                    .body(Vec::from("Failed to decode query param."))
+                    .unwrap(),
+                
+            }
+        });
+        tokio::spawn(async move {
+            warp::serve(pprof_report_endpoint).run(([0, 0, 0, 0], 8081)).await;
     });
-    warp::serve(pprof_report_endpoint).run(([0, 0, 0, 0], 8081)).await;
     } else {
         tokio::spawn(grpc(
             grpc_addr,
