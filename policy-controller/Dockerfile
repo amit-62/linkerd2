@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM ghcr.io/linkerd/dev:v40-rust as controller
+FROM --platform=$BUILDPLATFORM ghcr.io/linkerd/dev:v40-rust-musl as controller
 ARG BUILD_TYPE="release"
 WORKDIR /build
 RUN mkdir -p target/bin
@@ -10,11 +10,15 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 ARG TARGETARCH
 RUN --mount=type=cache,target=target \
     --mount=type=cache,target=/usr/local/cargo/registry \
-    target=x86_64-unknown-linux-gnu  && \
+    target=$(case "$TARGETARCH" in \
+        amd64) echo x86_64-unknown-linux-musl ;; \
+        arm64) echo aarch64-unknown-linux-musl ;; \
+        arm) echo armv7-unknown-linux-musleabihf ;; \
+        *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac) && \
     just-cargo profile=$BUILD_TYPE target=$target build --package=linkerd-policy-controller && \
     mv "target/$target/$BUILD_TYPE/linkerd-policy-controller" /tmp/
-RUN ls -l /tmp
 
-FROM gcr.io/distroless/cc as runtime
+FROM scratch as runtime
 COPY --from=controller /tmp/linkerd-policy-controller /bin/
 ENTRYPOINT ["/bin/linkerd-policy-controller"]
