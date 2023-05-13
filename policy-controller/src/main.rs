@@ -1,6 +1,5 @@
 #![deny(warnings, rust_2018_idioms)]
 #![forbid(unsafe_code)]
-#![allow(unused_variables)]
 
 use anyhow::{bail, Result};
 use clap::Parser;
@@ -15,18 +14,10 @@ use linkerd_policy_controller::{
 };
 use linkerd_policy_controller_k8s_index::ports::parse_portset;
 use linkerd_policy_controller_k8s_status::{self as status};
-use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{sync::mpsc, time::Duration};
 use tonic::transport::Server;
 use tracing::{info, info_span, instrument, Instrument};
-#[cfg(feature = "pprof")]
-use pprof::{self, ProfilerGuardBuilder};
-#[cfg(feature = "pprof")]
-use warp::{
-    http::{Response},
-    Filter,
-};
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
 #[global_allocator]
@@ -36,11 +27,6 @@ const DETECT_TIMEOUT: Duration = Duration::from_secs(10);
 const LEASE_DURATION: Duration = Duration::from_secs(30);
 const LEASE_NAME: &str = "policy-controller-write";
 const RENEW_GRACE_PERIOD: Duration = Duration::from_secs(1);
-
-#[derive(Deserialize, Serialize)]
-struct QueryParams {
-    key: String,
-}
 
 #[derive(Debug, Parser)]
 #[clap(name = "policy", about = "A policy resource prototype")]
@@ -108,8 +94,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("linkerd proxy controller");
-    // #[cfg(feature = "pprof")]
+    #![allow(unused_variables)]
     let Args {
         admin,
         client,
@@ -252,57 +237,9 @@ async fn main() -> Result<()> {
 
     #[cfg(feature = "pprof")]
     if enable_pprof {
-        let guard = Arc::new(ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso", "backtrace"]).build().unwrap());
-      
-        let opt_query = warp::query::<QueryParams>()
-        .map(Some)
-        .or_else(|_| async { Ok::<(Option<QueryParams>,), std::convert::Infallible>((None,)) });
-
-        let pprof_report_endpoint = warp::path("pprof_report")
-        .and(opt_query)
-        .map(move |params: Option<QueryParams>| {
-            let report = guard.report().build().unwrap();
-
-            match params {
-                Some(obj) => {
-                    // pprof_report?key=Flamegraph
-                    if obj.key == "Flamegraph" {
-                        let mut file = Vec::new();
-                        report.flamegraph(&mut file).unwrap();
-                        Response::builder()
-                            .header("content-type", "image/svg+xml")
-                            .body(file)
-                            .unwrap()   
-                    }
-                    // pprof_report?key=proto
-                    else if obj.key == "proto"  {
-                        let mut file = Vec::new();
-                        let profile = report.pprof().unwrap();
-                        profile.write_to_vec(&mut file).unwrap();
-                        Response::builder()
-                        .header("Content-Type", "application/octet-stream")
-                        .header("Content-Disposition", "attachment; filename=profile.pb")
-                        .body(file)
-                        .unwrap()
-                    }
-                    else {
-                        Response::builder()
-                        .body(Vec::from("unknown value for key"))
-                        .unwrap()
-
-                    }
-                }
-                None => Response::builder()
-                        .body(Vec::from("Failed to decode query param."))
-                        .unwrap(),
-                
-            }
-        });
-        tokio::spawn(async move {
-            warp::serve(pprof_report_endpoint).run(([0, 0, 0, 0], 8081)).await;
-        });
+        linkerd_policy_controller::profiling::init();
     }
-    
+
     // Run the gRPC server, serving results by looking up against the index handle.
     tokio::spawn(grpc(
         grpc_addr,

@@ -3,6 +3,10 @@
 mod admission;
 pub mod index_list;
 pub use self::admission::Admission;
+
+#[cfg(feature = "pprof")]
+pub mod profiling;
+
 use anyhow::Result;
 use linkerd_policy_controller_core::inbound::{
     DiscoverInboundServer, InboundServer, InboundServerStream,
