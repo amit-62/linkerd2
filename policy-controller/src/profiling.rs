@@ -2,6 +2,7 @@ use pprof::{protos::Message, ProfilerGuardBuilder, Report};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use warp::{http::Response, Filter};
+use std::fmt::Write;
 
 const PPROF_PORT: u16 = 81;
 
@@ -13,11 +14,12 @@ struct QueryParams {
 struct MyReport(Report);
 
 impl MyReport {
-    pub fn folded<W>(&self, mut writer: W) -> Result<()>
+    pub fn folded<W>(&self, mut writer: W) -> Result<(), std::io::Error>
     where
         W: std::io::Write,
     {
         let lines: Vec<String> = self
+            .0
             .data
             .iter()
             .map(|(key, value)| {
@@ -63,7 +65,7 @@ pub fn init() {
         warp::path("pprof")
             .and(opt_query)
             .map(move |params: Option<QueryParams>| {
-                let report = guard.report().build().unwrap();
+                let report = guard.report().build().unwrap(); 
 
                 match params {
                     Some(obj) => {
@@ -84,8 +86,9 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "folded" {
+                            let my_report = MyReport(report);
                             let mut file = Vec::new();
-                            report.folded(&mut file).unwrap();
+                            my_report.folded(&mut file).unwrap();
                             Response::builder()
                                 .header("content-type", "text/plain")
                                 .body(file)
