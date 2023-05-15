@@ -4,7 +4,7 @@ use std::sync::Arc;
 use warp::{http::Response, Filter};
 use std::fmt::Write;
 
-const PPROF_PORT: u16 = 81;
+const PPROF_PORT: u16 = 8081;
 
 #[derive(Deserialize, Serialize)]
 struct QueryParams {
