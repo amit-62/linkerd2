@@ -11,7 +11,6 @@ bindir=$( cd "${0%/*}" && pwd )
 
 "$bindir"/docker-build-proxy
 "$bindir"/docker-build-controller
-"$bindir"/docker-build-policy-controller
 "$bindir"/docker-build-policy-controller-gnu
 "$bindir"/docker-build-web
 "$bindir"/docker-build-debug
