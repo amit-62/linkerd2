@@ -1,12 +1,13 @@
 use pprof::{protos::Message, ProfilerGuardBuilder, Report};
 use serde::{Deserialize, Serialize};
+use std::io::{Read};
 use std::sync::Arc;
 use warp::{http::Response, Filter};
 use std::fmt::Write;
-// use std::{fs::File, io::BufWriter};
-use std::io::{Cursor};
+use std::{fs::File};
 use tracing_flame::FlameLayer;
-use tracing_subscriber::{prelude::*, fmt};
+use tracing_subscriber::{prelude::*, fmt, Registry};
+use tracing;
 
 const PPROF_PORT: u16 = 8081;
 
@@ -61,6 +62,13 @@ pub fn init() {
             .unwrap(),
     );
 
+    let file = File::open("./filename.folded").expect("Failed to open file");
+    let fmt_layer = fmt::Layer::default();
+    let flame_layer = FlameLayer::new(file);
+    let subscriber = Registry::default().with(fmt_layer).with(flame_layer);
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Failed to set the default subscriber");
+
     let opt_query = warp::query::<QueryParams>()
         .map(Some)
         .or_else(|_| async { Ok::<(Option<QueryParams>,), std::convert::Infallible>((None,)) });
@@ -99,18 +107,14 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "tracing" {
-                            let file = Vec::new();
-                            let fmt_layer = fmt::Layer::default();
-                            let writer = Cursor::new(file.clone());
-                            let flame_layer = FlameLayer::new(writer);
-                            tracing_subscriber::registry()
-                                                .with(fmt_layer)
-                                                .with(flame_layer)
-                                                .init();
+                            let mut buffer = Vec::new();
+                            File::open("./filename.folded")
+                                .and_then(|mut file| file.read_to_end(&mut buffer))
+                                .expect("Failed to read file");                
                             Response::builder()
                                 .header("content-type", "text/plain")
                                 .header("content-disposition", "attachment; filename=tfolded")
-                                .body(Vec::from("tracing-folded"))
+                                .body(buffer)
                                 .unwrap()
                         } else {
                             Response::builder()
@@ -130,15 +134,3 @@ pub fn init() {
             .await;
     });
 }
-
-// pub fn setup_global_subscriber() -> impl Drop {
-//     let fmt_layer = fmt::Layer::default();
-
-//     let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
-
-    // tracing_subscriber::registry()
-    //     .with(fmt_layer)
-    //     .with(flame_layer)
-    //     .init().
-//     _guard
-// }
