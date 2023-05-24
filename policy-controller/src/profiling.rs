@@ -1,10 +1,9 @@
 use pprof::{protos::Message, ProfilerGuardBuilder, Report};
 use serde::{Deserialize, Serialize};
-use std::io::{Read};
+// use std::io::Write;
 use std::sync::Arc;
 use warp::{http::Response, Filter};
 use std::fmt::Write;
-use std::{fs::File};
 use tracing_flame::FlameLayer;
 use tracing_subscriber::{prelude::*, fmt, Registry};
 use tracing;
@@ -62,9 +61,9 @@ pub fn init() {
             .unwrap(),
     );
 
-    let file = File::open("./filename.folded").expect("Failed to open file");
+    let buffer = Vec::new();
     let fmt_layer = fmt::Layer::default();
-    let flame_layer = FlameLayer::new(file);
+    let flame_layer = FlameLayer::new(buffer.clone());
     let subscriber = Registry::default().with(fmt_layer).with(flame_layer);
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set the default subscriber");
@@ -82,6 +81,7 @@ pub fn init() {
                 match params {
                     Some(obj) => {
                         if obj.format == "flamegraph" {
+                            // let report = guard.report().build().unwrap();
                             let mut file = Vec::new();
                             report.flamegraph(&mut file).unwrap();
                             Response::builder()
@@ -89,6 +89,7 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "proto" {
+                            // let report = guard.report().build().unwrap();
                             let mut file = Vec::new();
                             let profile = report.pprof().unwrap();
                             profile.write_to_vec(&mut file).unwrap();
@@ -98,6 +99,7 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "folded" {
+                            // let report = guard.report().build().unwrap();
                             let my_report = MyReport(report);
                             let mut file = Vec::new();
                             my_report.folded(&mut file).unwrap();
@@ -107,14 +109,14 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "tracing" {
-                            let mut buffer = Vec::new();
-                            File::open("./filename.folded")
-                                .and_then(|mut file| file.read_to_end(&mut buffer))
-                                .expect("Failed to read file");                
+                            use std::io::Write;
+                            let mut new_file = Vec::new();
+                            new_file.write_all(&buffer).expect("Failed to set the default subscriber");
+               
                             Response::builder()
                                 .header("content-type", "text/plain")
                                 .header("content-disposition", "attachment; filename=tfolded")
-                                .body(buffer)
+                                .body(new_file)
                                 .unwrap()
                         } else {
                             Response::builder()
