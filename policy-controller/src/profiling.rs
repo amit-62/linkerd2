@@ -60,11 +60,9 @@ pub fn init() {
             .unwrap(),
     );
 
-    let tracing_flame_buffer = Vec::new();
+    let tracing_flame_buffer = Arc::new(Vec::new());
     let fmt_layer = fmt::Layer::default();
-    let flame_layer = FlameLayer::new(tracing_flame_buffer.clone());
-    let flush_guard = flame_layer.flush_on_drop();
-    let _flush = flush_guard.flush();
+    let flame_layer = FlameLayer::new(*tracing_flame_buffer.clone());
     let subscriber = Registry::default().with(fmt_layer).with(flame_layer);
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set the default subscriber");
@@ -108,8 +106,9 @@ pub fn init() {
                                 .unwrap()
                         } else if obj.format == "tracing-flamegraph" {
                             use std::io::Write;
-                            // let flush_guard = flame_layer.flush_on_drop();
-                            // let flush = f_guard.flush();
+                            let flush_guard = flame_layer.flush_on_drop();
+                            let _flush = flush_guard.flush();
+                            // let file = tracing_flame_buffer.clone();
                             let mut file = Vec::new();
                             file.write_all(&tracing_flame_buffer).expect("Failed to set the default subscriber");
                             Response::builder()
