@@ -1,12 +1,11 @@
 use pprof::{protos::Message, ProfilerGuardBuilder, Report};
 use serde::{Deserialize, Serialize};
-// use std::io::Write;
 use std::sync::Arc;
-use warp::{http::Response, Filter};
 use std::fmt::Write;
 use tracing_flame::FlameLayer;
 use tracing_subscriber::{prelude::*, fmt, Registry};
 use tracing;
+use warp::{http::Response, Filter};
 
 const PPROF_PORT: u16 = 8081;
 
@@ -61,9 +60,11 @@ pub fn init() {
             .unwrap(),
     );
 
-    let buffer = Vec::new();
+    let tracing_flame_buffer = Vec::new();
     let fmt_layer = fmt::Layer::default();
-    let flame_layer = FlameLayer::new(buffer.clone());
+    let flame_layer = FlameLayer::new(tracing_flame_buffer.clone());
+    let flush_guard = flame_layer.flush_on_drop();
+    let _flush = flush_guard.flush();
     let subscriber = Registry::default().with(fmt_layer).with(flame_layer);
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set the default subscriber");
@@ -81,7 +82,6 @@ pub fn init() {
                 match params {
                     Some(obj) => {
                         if obj.format == "flamegraph" {
-                            // let report = guard.report().build().unwrap();
                             let mut file = Vec::new();
                             report.flamegraph(&mut file).unwrap();
                             Response::builder()
@@ -89,7 +89,6 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "proto" {
-                            // let report = guard.report().build().unwrap();
                             let mut file = Vec::new();
                             let profile = report.pprof().unwrap();
                             profile.write_to_vec(&mut file).unwrap();
@@ -99,7 +98,6 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "folded" {
-                            // let report = guard.report().build().unwrap();
                             let my_report = MyReport(report);
                             let mut file = Vec::new();
                             my_report.folded(&mut file).unwrap();
@@ -108,15 +106,16 @@ pub fn init() {
                                 .header("content-disposition", "attachment; filename=folded")
                                 .body(file)
                                 .unwrap()
-                        } else if obj.format == "tracing" {
+                        } else if obj.format == "tracing-flamegraph" {
                             use std::io::Write;
-                            let mut new_file = Vec::new();
-                            new_file.write_all(&buffer).expect("Failed to set the default subscriber");
-               
+                            // let flush_guard = flame_layer.flush_on_drop();
+                            // let flush = f_guard.flush();
+                            let mut file = Vec::new();
+                            file.write_all(&tracing_flame_buffer).expect("Failed to set the default subscriber");
                             Response::builder()
                                 .header("content-type", "text/plain")
                                 .header("content-disposition", "attachment; filename=tfolded")
-                                .body(new_file)
+                                .body(file)
                                 .unwrap()
                         } else {
                             Response::builder()

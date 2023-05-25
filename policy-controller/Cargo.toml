@@ -52,7 +52,7 @@ features = ["admission", "derive"]
 [dependencies.kubert]
 version = "0.16"
 default-features = false
-features = ["clap", "index", "lease", "metrics", "runtime", "server", "log"]
+features = ["clap", "index", "lease", "metrics", "runtime", "server"]
 
 [dependencies.tokio]
 version = "1"
@@ -62,9 +62,6 @@ features = ["macros", "parking_lot", "rt", "rt-multi-thread", "signal"]
 version = "0.8"
 default-features = false
 features = ["transport"]
-
-[patch.crates-io]
-kubert = { git = "https://github.com/amit-62/kubert" }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 jemallocator = "0.5"
