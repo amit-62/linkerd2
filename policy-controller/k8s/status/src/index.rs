@@ -18,6 +18,8 @@ use tokio::{
     },
     time::{self, Duration},
 };
+use tracing::info_span;
+use tracing::Instrument;
 
 pub(crate) const POLICY_API_GROUP: &str = "policy.linkerd.io";
 const POLICY_API_VERSION: &str = "policy.linkerd.io/v1alpha1";
@@ -159,24 +161,25 @@ impl Index {
         let mut claims = index.read().claims.clone();
 
         loop {
-            tokio::select! {
-                res = claims.changed() => {
-                    res.expect("Claims watch must not be dropped");
-                    tracing::debug!("Lease holder has changed");
+            async {
+                tokio::select! {
+                    res = claims.changed() => {
+                        res.expect("Claims watch must not be dropped");
+                        tracing::debug!("Lease holder has changed");
+                    }
+                    _ = time::sleep(Duration::from_secs(10)) => {}
                 }
-                _ = time::sleep(Duration::from_secs(10)) => {}
-            }
 
-            // The claimant has changed, or we should attempt to reconcile all
-            // HTTPRoutes to account for any errors. In either case, we should
-            // only proceed if we are the current leader.
-            let claims = claims.borrow_and_update();
-            let index = index.read();
-            if !claims.is_current_for(&index.name) {
-                continue;
-            }
-            tracing::debug!(%index.name, "Lease holder reconciling cluster");
-            index.reconcile();
+                // The claimant has changed, or we should attempt to reconcile all
+                // HTTPRoutes to account for any errors. In either case, we should
+                // only proceed if we are the current leader.
+                let claims = claims.borrow_and_update();
+                let index = index.read();
+                if claims.is_current_for(&index.name) {
+                    tracing::debug!(%index.name, "Lease holder reconciling cluster");
+                    index.reconcile();
+                }
+            }.instrument(info_span!("lease reconciliation loop")).await;
         }
     }
 

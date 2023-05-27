@@ -60,9 +60,9 @@ pub fn init() {
             .unwrap(),
     );
 
-    let tracing_flame_buffer = Arc::new(Vec::new());
+    let (flame_layer, flame_guard) = FlameLayer::with_file("/tmp/tracing.folded").unwrap();
+    let flame_guard = Arc::new(flame_guard);
     let fmt_layer = fmt::Layer::default();
-    let flame_layer = FlameLayer::new(*tracing_flame_buffer.clone());
     let subscriber = Registry::default().with(fmt_layer).with(flame_layer);
     tracing::subscriber::set_global_default(subscriber)
         .expect("Failed to set the default subscriber");
@@ -105,12 +105,8 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "tracing-flamegraph" {
-                            use std::io::Write;
-                            let flush_guard = flame_layer.flush_on_drop();
-                            let _flush = flush_guard.flush();
-                            // let file = tracing_flame_buffer.clone();
-                            let mut file = Vec::new();
-                            file.write_all(&tracing_flame_buffer).expect("Failed to set the default subscriber");
+                            flame_guard.flush().unwrap();
+                            let file = std::fs::read("/tmp/tracing.folded").unwrap();
                             Response::builder()
                                 .header("content-type", "text/plain")
                                 .header("content-disposition", "attachment; filename=tfolded")

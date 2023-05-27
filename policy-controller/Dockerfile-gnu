@@ -15,6 +15,6 @@ RUN --mount=type=cache,target=target \
     mv "target/$target/$BUILD_TYPE/linkerd-policy-controller" /tmp/
 RUN ls -l /tmp
 
-FROM gcr.io/distroless/cc as runtime
+FROM ubuntu as runtime
 COPY --from=controller /tmp/linkerd-policy-controller /bin/
 ENTRYPOINT ["/bin/linkerd-policy-controller"]
