@@ -5,7 +5,7 @@ use std::fmt::Write;
 use tracing_flame::FlameLayer;
 use tracing_subscriber::{prelude::*, fmt, Registry};
 use tracing;
-use warp::{http::Response, Filter};
+use warp::{http::Response, http::StatusCode, Filter};
 
 const PPROF_PORT: u16 = 8081;
 
@@ -101,7 +101,7 @@ pub fn init() {
                             my_report.folded(&mut file).unwrap();
                             Response::builder()
                                 .header("content-type", "text/plain")
-                                .header("content-disposition", "attachment; filename=folded")
+                                .header("content-disposition", "attachment; filename=profile.folded")
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "tracing-flamegraph" {
@@ -109,16 +109,18 @@ pub fn init() {
                             let file = std::fs::read("/tmp/tracing.folded").unwrap();
                             Response::builder()
                                 .header("content-type", "text/plain")
-                                .header("content-disposition", "attachment; filename=tfolded")
+                                .header("content-disposition", "attachment; filename=profile.folded")
                                 .body(file)
                                 .unwrap()
                         } else {
                             Response::builder()
-                                .body(Vec::from("unknown value for format"))
+                                .status(StatusCode::NOT_FOUND)
+                                .body(Vec::from("404 Not Found"))
                                 .unwrap()
                         }
                     }
                     None => Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
                         .body(Vec::from("Failed to decode query param."))
                         .unwrap(),
                 }
