@@ -2,6 +2,7 @@ use pprof::{protos::Message, ProfilerGuardBuilder, Report};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::fmt::Write;
+use std::fs::File;
 use tracing_flame::FlameLayer;
 use tracing_subscriber::{prelude::*, fmt, Registry};
 use warp::{http::Response, http::StatusCode, Filter};
@@ -59,9 +60,8 @@ pub fn init() {
             .unwrap(),
     );
 
-    let (flame_layer, flame_guard) = FlameLayer::with_file("/tmp/tracing.folded").unwrap();
-    let flame_guard = Arc::new(flame_guard);
-    let flame_guard = flame_guard.clone();
+    let f = File::create("/tmp/tracing.folded").expect("Unable to create file");
+    let flame_layer = FlameLayer::new(f);
     let fmt_layer = fmt::Layer::default();
     let subscriber = Registry::default().with(fmt_layer).with(flame_layer);
     tracing::subscriber::set_global_default(subscriber)
@@ -105,7 +105,6 @@ pub fn init() {
                                 .body(file)
                                 .unwrap()
                         } else if obj.format == "tracing-flamegraph" {
-                            flame_guard.flush().unwrap();
                             let file = std::fs::read("/tmp/tracing.folded").unwrap();
                             Response::builder()
                                 .header("content-type", "text/plain")
