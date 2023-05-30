@@ -114,6 +114,11 @@ async fn main() -> Result<()> {
         enable_pprof,
     } = Args::parse();
 
+    #[cfg(feature = "pprof")]
+    if enable_pprof {
+        linkerd_policy_controller::profiling::init();
+    }
+
     let server = if admission_controller_disabled {
         None
     } else {
@@ -234,11 +239,6 @@ async fn main() -> Result<()> {
 
     // Spawn the status Controller reconciliation.
     tokio::spawn(status::Index::run(status_index.clone()).instrument(info_span!("status::Index")));
-
-    #[cfg(feature = "pprof")]
-    if enable_pprof {
-        linkerd_policy_controller::profiling::init();
-    }
 
     // Run the gRPC server, serving results by looking up against the index handle.
     tokio::spawn(grpc(
