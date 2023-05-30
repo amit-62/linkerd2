@@ -13,4 +13,4 @@ members = [
 lto = "thin"
 
 [patch.crates-io]
-kubert = { git = "https://github.com/amit-62/kubert" }
+kubert = { git = "https://github.com/amit-62/kubert.git", branch = "my-v15" }
