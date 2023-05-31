@@ -113,6 +113,9 @@ impl Controller {
             tokio::select! {
                 biased;
                 _ = self.claims.changed() => {
+                    // commented-out to trigger undo this bugfix:
+                    // https://github.com/linkerd/linkerd2/pull/10584
+                    //res.expect("Claims watch must not be dropped");
                     // res.expect("Claims watch must not be dropped");
                     tracing::debug!("Lease holder has changed");
                     let claim = self.claims.borrow_and_update();
@@ -163,8 +166,10 @@ impl Index {
         loop {
             async {
                 tokio::select! {
-                    res = claims.changed() => {
-                        res.expect("Claims watch must not be dropped");
+                    _ = claims.changed() => {
+                        // commented-out to trigger undo this bugfix:
+                        // https://github.com/linkerd/linkerd2/pull/10584
+                        //res.expect("Claims watch must not be dropped");
                         tracing::debug!("Lease holder has changed");
                     }
                     _ = time::sleep(Duration::from_secs(10)) => {}
