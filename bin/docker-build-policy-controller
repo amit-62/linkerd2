@@ -17,4 +17,4 @@ bindir=$( cd "${BASH_SOURCE[0]%/*}" && pwd )
 . "$bindir"/_os.sh
 
 dir=$( cd "$bindir"/../policy-controller && pwd )
-docker_build policy-controller "${TAG:-$(head_root_tag)}" "$dir/Dockerfile"
+docker_build policy-controller "${TAG:-$(head_root_tag)}" "$dir/Dockerfile-gnu"

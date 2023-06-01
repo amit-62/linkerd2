@@ -1,0 +1,19 @@
+FROM --platform=$BUILDPLATFORM ghcr.io/linkerd/dev:v40-rust as controller
+ARG BUILD_TYPE="debug"
+WORKDIR /build
+RUN mkdir -p target/bin
+COPY Cargo.toml Cargo.lock .
+COPY policy-controller policy-controller
+RUN cargo new policy-test --lib
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    cargo fetch
+ARG TARGETARCH
+RUN --mount=type=cache,target=target \
+    --mount=type=cache,target=/usr/local/cargo/registry \
+    target=x86_64-unknown-linux-gnu  && \
+    just-cargo profile=$BUILD_TYPE target=$target build --features pprof --package=linkerd-policy-controller && \
+    mv "target/$target/$BUILD_TYPE/linkerd-policy-controller" /tmp/
+
+FROM gcr.io/distroless/cc as runtime
+COPY --from=controller /tmp/linkerd-policy-controller /bin/
+ENTRYPOINT ["/bin/linkerd-policy-controller"]
