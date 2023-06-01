@@ -1384,6 +1384,7 @@ spec:
         - --log-level=info
         - --log-format=plain
         - --default-opaque-ports=25,587,3306,4444,5432,6379,9300,11211
+        - --enable-pprof=false
         - --probe-networks=0.0.0.0/0
         image: cr.l5d.io/linkerd/policy-controller:install-control-plane-version
         imagePullPolicy: IfNotPresent
@@ -1399,6 +1400,7 @@ spec:
           name: admin-http
         - containerPort: 9443
           name: policy-https
+           
         readinessProbe:
           failureThreshold: 7
           httpGet:
@@ -1419,6 +1421,7 @@ spec:
         - mountPath: /var/run/linkerd/tls
           name: policy-tls
           readOnly: true
+            
       initContainers:
       - args:
         - --incoming-proxy-port
@@ -1468,6 +1471,7 @@ spec:
       - name: policy-tls
         secret:
           secretName: linkerd-policy-validator-k8s-tls
+           
       - emptyDir: {}
         name: linkerd-proxy-init-xtables-lock
       - name: linkerd-identity-token
