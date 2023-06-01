@@ -87,10 +87,14 @@ struct Args {
 
     #[clap(long)]
     default_opaque_ports: String,
+
+    #[clap(long, action = clap::ArgAction::Set)]
+    enable_pprof: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    #![allow(unused_variables)]
     let Args {
         admin,
         client,
@@ -107,7 +111,13 @@ async fn main() -> Result<()> {
         control_plane_namespace,
         probe_networks,
         default_opaque_ports,
+        enable_pprof,
     } = Args::parse();
+
+    #[cfg(feature = "pprof")]
+    if enable_pprof {
+        linkerd_policy_controller::profiling::init();
+    }
 
     let server = if admission_controller_disabled {
         None
