@@ -289,6 +289,7 @@ spec:
         - --log-level={{.Values.policyController.logLevel | default "linkerd=info,warn"}}
         - --log-format={{.Values.controllerLogFormat}}
         - --default-opaque-ports={{.Values.proxy.opaquePorts}}
+        - --enable-pprof={{.Values.enablePprof | default false}}
         {{- if .Values.policyController.probeNetworks }}
         - --probe-networks={{.Values.policyController.probeNetworks | join ","}}
         {{- end}}
@@ -306,6 +307,10 @@ spec:
           name: admin-http
         - containerPort: 9443
           name: policy-https
+        {{ if .Values.enablePprof -}}  
+        - containerPort: 8081
+          name: pprof
+        {{- end }}   
         readinessProbe:
           failureThreshold: 7
           httpGet:
@@ -329,6 +334,10 @@ spec:
         - mountPath: /var/run/linkerd/tls
           name: policy-tls
           readOnly: true
+        {{ if .Values.enablePprof -}}  
+        - mountPath: /tmp
+          name: tmp 
+        {{- end }}    
       initContainers:
       {{ if .Values.cniEnabled -}}
       - {{- include "partials.network-validator" $tree | indent 8 | trimPrefix (repeat 7 " ") }}
@@ -354,6 +363,10 @@ spec:
       - name: policy-tls
         secret:
           secretName: linkerd-policy-validator-k8s-tls
+      {{ if .Values.enablePprof -}}    
+      - name: tmp
+        emptyDir: {} 
+      {{- end }}     
       {{ if not .Values.cniEnabled -}}
       - {{- include "partials.proxyInit.volumes.xtables" . | indent 8 | trimPrefix (repeat 7 " ") }}
       {{ end -}}
